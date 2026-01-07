@@ -1,11 +1,12 @@
+import ComposableArchitecture
 import SwiftUI
 
 /// メインの天気表示画面
 public struct WeatherView: View {
-    @ObservedObject private var viewModel: WeatherViewModel
+    @Bindable var store: StoreOf<WeatherFeature>
 
-    public init(viewModel: WeatherViewModel) {
-        self.viewModel = viewModel
+    public init(store: StoreOf<WeatherFeature>) {
+        self.store = store
     }
 
     public var body: some View {
@@ -19,32 +20,23 @@ public struct WeatherView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
-                        Task {
-                            await viewModel.fetchWeather()
-                        }
+                        store.send(.refreshButtonTapped)
                     }) {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(viewModel.isLoading)
+                    .disabled(store.isLoading)
                 }
             }
         }
-        .task {
-            await viewModel.fetchWeather()
+        .onAppear {
+            store.send(.onAppear)
         }
     }
 
     @ViewBuilder
     private var cityPicker: some View {
-        Picker("都市", selection: Binding(
-            get: { viewModel.selectedCityCode },
-            set: { newValue in
-                Task {
-                    await viewModel.changeCity(to: newValue)
-                }
-            }
-        )) {
-            ForEach(viewModel.availableCities, id: \.code) { city in
+        Picker("都市", selection: $store.selectedCityCode.sending(\.citySelected)) {
+            ForEach(WeatherFeature.State.availableCities, id: \.code) { city in
                 Text(city.name).tag(city.code)
             }
         }
@@ -54,26 +46,22 @@ public struct WeatherView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch viewModel.state {
-        case .idle:
+        if store.isLoading {
+            ProgressView("読み込み中...")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let weather = store.weather {
+            WeatherContentView(weather: weather)
+        } else if let errorMessage = store.errorMessage {
+            ContentUnavailableView(
+                "エラー",
+                systemImage: "exclamationmark.triangle",
+                description: Text(errorMessage)
+            )
+        } else {
             ContentUnavailableView(
                 "天気を取得",
                 systemImage: "cloud.sun",
                 description: Text("都市を選択して天気を確認")
-            )
-
-        case .loading:
-            ProgressView("読み込み中...")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-        case .loaded(let weather):
-            WeatherContentView(weather: weather)
-
-        case .error(let message):
-            ContentUnavailableView(
-                "エラー",
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
             )
         }
     }
@@ -248,4 +236,16 @@ struct RainProbabilityBadge: View {
         default: return .blue
         }
     }
+}
+
+// MARK: - Preview
+
+#Preview {
+    WeatherView(
+        store: Store(initialState: WeatherFeature.State()) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient = .previewValue
+        }
+    )
 }

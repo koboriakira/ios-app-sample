@@ -1,5 +1,6 @@
-import XCTest
+import ComposableArchitecture
 import SwiftUI
+import XCTest
 @testable import WeatherApp
 
 /// スナップショットテストのベースクラス
@@ -10,39 +11,35 @@ import SwiftUI
 /// ```swift
 /// final class WeatherViewSnapshotTests: SnapshotTestCase {
 ///     func testWeatherView_loaded() {
-///         let view = makeWeatherView(state: .loaded(TestFixtures.sampleWeather))
+///         let view = makeWeatherView(weather: TestFixtures.sampleWeather)
 ///         // assertSnapshot(matching: view, as: .image)
 ///     }
 /// }
 /// ```
 class SnapshotTestCase: XCTestCase {
 
-    /// テスト用のWeatherViewを生成
+    /// テスト用のWeatherViewを生成（アイドル状態）
     @MainActor
-    func makeWeatherView(state: WeatherViewState) -> WeatherView {
-        let mockUseCase = MockFetchWeatherUseCase()
-        mockUseCase.stubbedResult = .success(TestFixtures.sampleWeather)
-
-        let viewModel = WeatherViewModel(fetchWeatherUseCase: mockUseCase)
-
-        // 状態を直接設定するためのヘルパー（テスト用）
-        switch state {
-        case .idle:
-            break // 初期状態
-        case .loading:
-            break // ローディング状態はasyncで設定
-        case .loaded:
-            Task {
-                await viewModel.fetchWeather()
-            }
-        case .error:
-            mockUseCase.stubbedResult = .failure(.networkError("Test error"))
-            Task {
-                await viewModel.fetchWeather()
-            }
+    func makeWeatherView(
+        selectedCityCode: String = "130010",
+        weather: Weather? = nil,
+        isLoading: Bool = false,
+        errorMessage: String? = nil
+    ) -> WeatherView {
+        let store = Store(
+            initialState: WeatherFeature.State(
+                selectedCityCode: selectedCityCode,
+                weather: weather,
+                isLoading: isLoading,
+                errorMessage: errorMessage
+            )
+        ) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient = .previewValue
         }
 
-        return WeatherView(viewModel: viewModel)
+        return WeatherView(store: store)
     }
 
     /// ホスティングコントローラーでラップ（UIKit統合用）
