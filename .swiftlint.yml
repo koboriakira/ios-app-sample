@@ -34,7 +34,7 @@ opt_in_rules:
   - closure_spacing
   - collection_alignment
   - explicit_init
-  - extension_access_modifier
+  # - extension_access_modifier  # Disabled: conflicts with public extension pattern
   - fatal_error_message
   - file_name_no_space
   - identical_operands
@@ -59,7 +59,7 @@ opt_in_rules:
   - single_test_class
   - sorted_imports
   - toggle_bool
-  - trailing_closure
+  # - trailing_closure  # Disabled: conflicts with some TCA patterns
   - unneeded_parentheses_in_closure_argument
   - vertical_parameter_alignment_on_call
   - vertical_whitespace_closing_braces
@@ -142,6 +142,15 @@ identifier_name:
     - i
     - j
     - to
+    # API JSON keys (uppercase from DTO, lowercase from domain model)
+    - T00_06
+    - T06_12
+    - T12_18
+    - T18_24
+    - t00_06
+    - t06_12
+    - t12_18
+    - t18_24
 
 # Nesting
 nesting:
@@ -159,7 +168,7 @@ vertical_whitespace:
 
 # Trailing comma
 trailing_comma:
-  mandatory_comma: true
+  mandatory_comma: false
 
 # Number separator
 number_separator:
@@ -193,13 +202,6 @@ modifier_order:
 # Custom Rules
 # ====================
 custom_rules:
-  # Mark comments formatting
-  mark_newlines:
-    name: "MARK Newlines"
-    regex: "(// MARK: -)|(// MARK: [^\\-])"
-    message: "Use `// MARK: - Section Name` format with a hyphen"
-    severity: warning
-
   # Avoid print statements in production code
   no_print:
     name: "No Print"
