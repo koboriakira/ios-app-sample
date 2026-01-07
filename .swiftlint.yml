@@ -142,11 +142,15 @@ identifier_name:
     - i
     - j
     - to
-    # API JSON keys
+    # API JSON keys (uppercase from DTO, lowercase from domain model)
     - T00_06
     - T06_12
     - T12_18
     - T18_24
+    - t00_06
+    - t06_12
+    - t12_18
+    - t18_24
 
 # Nesting
 nesting:
