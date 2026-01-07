@@ -159,7 +159,7 @@ vertical_whitespace:
 
 # Trailing comma
 trailing_comma:
-  mandatory_comma: true
+  mandatory_comma: false
 
 # Number separator
 number_separator:
