@@ -15,15 +15,23 @@ let package = Package(
             targets: ["WeatherApp"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.15.0")
+    ],
     targets: [
         .target(
             name: "WeatherApp",
-            dependencies: [],
+            dependencies: [
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
+            ],
             path: "Sources/WeatherApp"
         ),
         .testTarget(
             name: "WeatherAppTests",
-            dependencies: ["WeatherApp"],
+            dependencies: [
+                "WeatherApp",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
+            ],
             path: "Tests/WeatherAppTests"
         ),
     ]

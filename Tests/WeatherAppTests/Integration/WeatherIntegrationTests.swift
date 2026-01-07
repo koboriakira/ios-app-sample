@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import XCTest
 @testable import WeatherApp
 
@@ -66,48 +67,105 @@ final class WeatherIntegrationTests: XCTestCase {
         }
     }
 
-    /// ViewModel統合テスト
+    // MARK: - TCA Feature Integration Tests
+
+    /// WeatherFeature統合テスト
     @MainActor
-    func testViewModelIntegration_fetchWeather_updatesState() async {
+    func testWeatherFeature_fetchWeather_updatesState() async {
         // Given
         mockHTTPClient.stubSuccess(data: TestFixtures.sampleAPIResponseData)
 
         let apiClient = WeatherAPIClient(httpClient: mockHTTPClient)
-        let repository = WeatherRepository(apiClient: apiClient)
-        let useCase = FetchWeatherUseCase(repository: repository)
-        let viewModel = WeatherViewModel(fetchWeatherUseCase: useCase)
+
+        let store = TestStore(initialState: WeatherFeature.State()) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient.fetchWeather = { cityCode in
+                let response = try await apiClient.fetchWeather(cityCode: cityCode)
+                return response.toDomain()
+            }
+        }
 
         // When
-        await viewModel.fetchWeather()
+        await store.send(.onAppear)
 
         // Then
-        XCTAssertNotNil(viewModel.weather)
-        XCTAssertEqual(viewModel.weather?.location.city, "東京")
-        XCTAssertFalse(viewModel.isLoading)
-
-        if case .loaded(let weather) = viewModel.state {
-            XCTAssertEqual(weather.forecasts.first?.telop, "晴れ")
-        } else {
-            XCTFail("Expected loaded state")
+        await store.receive(\.weatherResponse.success) {
+            $0.weather = Weather(
+                location: Location(area: "関東", prefecture: "東京都", city: "東京"),
+                description: "関東甲信地方は高気圧に緩やかに覆われています。",
+                forecasts: [
+                    DailyForecast(
+                        date: "2026-01-07",
+                        dateLabel: "今日",
+                        telop: "晴れ",
+                        telopDescription: .sunny,
+                        temperature: Temperature(
+                            min: TemperatureValue(celsius: "5", fahrenheit: "41"),
+                            max: TemperatureValue(celsius: "12", fahrenheit: "54")
+                        ),
+                        chanceOfRain: ChanceOfRain(
+                            t00_06: "10%",
+                            t06_12: "20%",
+                            t12_18: "10%",
+                            t18_24: "10%"
+                        ),
+                        imageUrl: URL(string: "https://www.jma.go.jp/bosai/forecast/img/100.svg")
+                    )
+                ]
+            )
         }
     }
 
     /// 都市変更の統合テスト
     @MainActor
-    func testViewModelIntegration_changeCity_fetchesNewWeather() async {
+    func testWeatherFeature_changeCity_fetchesNewWeather() async {
         // Given
         mockHTTPClient.stubSuccess(data: TestFixtures.sampleAPIResponseData)
 
         let apiClient = WeatherAPIClient(httpClient: mockHTTPClient)
-        let repository = WeatherRepository(apiClient: apiClient)
-        let useCase = FetchWeatherUseCase(repository: repository)
-        let viewModel = WeatherViewModel(fetchWeatherUseCase: useCase)
+
+        let store = TestStore(initialState: WeatherFeature.State()) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient.fetchWeather = { cityCode in
+                let response = try await apiClient.fetchWeather(cityCode: cityCode)
+                return response.toDomain()
+            }
+        }
 
         // When
-        await viewModel.changeCity(to: "270000")
+        await store.send(.citySelected("270000")) {
+            $0.selectedCityCode = "270000"
+        }
 
         // Then
-        XCTAssertEqual(viewModel.selectedCityCode, "270000")
+        await store.receive(\.weatherResponse.success) {
+            $0.weather = Weather(
+                location: Location(area: "関東", prefecture: "東京都", city: "東京"),
+                description: "関東甲信地方は高気圧に緩やかに覆われています。",
+                forecasts: [
+                    DailyForecast(
+                        date: "2026-01-07",
+                        dateLabel: "今日",
+                        telop: "晴れ",
+                        telopDescription: .sunny,
+                        temperature: Temperature(
+                            min: TemperatureValue(celsius: "5", fahrenheit: "41"),
+                            max: TemperatureValue(celsius: "12", fahrenheit: "54")
+                        ),
+                        chanceOfRain: ChanceOfRain(
+                            t00_06: "10%",
+                            t06_12: "20%",
+                            t12_18: "10%",
+                            t18_24: "10%"
+                        ),
+                        imageUrl: URL(string: "https://www.jma.go.jp/bosai/forecast/img/100.svg")
+                    )
+                ]
+            )
+        }
+
         XCTAssertEqual(mockHTTPClient.requestCallCount, 1)
 
         // URLに正しい都市コードが含まれている

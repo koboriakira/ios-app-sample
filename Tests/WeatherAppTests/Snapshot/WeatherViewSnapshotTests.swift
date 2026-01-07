@@ -1,5 +1,6 @@
-import XCTest
+import ComposableArchitecture
 import SwiftUI
+import XCTest
 @testable import WeatherApp
 
 /// WeatherViewのスナップショットテスト
@@ -11,7 +12,19 @@ final class WeatherViewSnapshotTests: SnapshotTestCase {
 
     @MainActor
     func testWeatherView_canBeCreated() {
-        let view = makeWeatherView(state: .idle)
+        let view = makeWeatherView()
+        XCTAssertNotNil(view)
+    }
+
+    @MainActor
+    func testWeatherView_withWeather_canBeCreated() {
+        let view = makeWeatherView(weather: TestFixtures.sampleWeather)
+        XCTAssertNotNil(view)
+    }
+
+    @MainActor
+    func testWeatherView_withError_canBeCreated() {
+        let view = makeWeatherView(errorMessage: "テストエラー")
         XCTAssertNotNil(view)
     }
 
@@ -31,38 +44,53 @@ final class WeatherViewSnapshotTests: SnapshotTestCase {
     // MARK: - State Verification Tests
 
     @MainActor
-    func testWeatherView_idleState_showsEmptyView() async {
-        let mockUseCase = MockFetchWeatherUseCase()
-        mockUseCase.stubbedResult = .success(TestFixtures.sampleWeather)
-        let viewModel = WeatherViewModel(fetchWeatherUseCase: mockUseCase)
+    func testWeatherFeature_initialState() async {
+        let store = TestStore(initialState: WeatherFeature.State()) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient.fetchWeather = { _ in TestFixtures.sampleWeather }
+        }
 
-        // idle状態ではweatherはnil
-        XCTAssertNil(viewModel.weather)
-        XCTAssertEqual(viewModel.state, .idle)
+        // 初期状態ではweatherはnil
+        XCTAssertNil(store.state.weather)
+        XCTAssertFalse(store.state.isLoading)
+        XCTAssertNil(store.state.errorMessage)
     }
 
     @MainActor
-    func testWeatherView_loadedState_showsWeatherData() async {
-        let mockUseCase = MockFetchWeatherUseCase()
-        mockUseCase.stubbedResult = .success(TestFixtures.sampleWeather)
-        let viewModel = WeatherViewModel(fetchWeatherUseCase: mockUseCase)
+    func testWeatherFeature_loadedState() async {
+        let store = TestStore(initialState: WeatherFeature.State()) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient.fetchWeather = { _ in TestFixtures.sampleWeather }
+        }
 
-        await viewModel.fetchWeather()
+        await store.send(.onAppear)
+        await store.receive(\.weatherResponse.success) {
+            $0.weather = TestFixtures.sampleWeather
+        }
 
-        XCTAssertNotNil(viewModel.weather)
-        XCTAssertEqual(viewModel.weather?.location.city, "東京")
+        XCTAssertNotNil(store.state.weather)
+        XCTAssertEqual(store.state.weather?.location.city, "東京")
     }
 
     @MainActor
-    func testWeatherView_errorState_showsErrorMessage() async {
-        let mockUseCase = MockFetchWeatherUseCase()
-        mockUseCase.stubbedResult = .failure(.networkError("接続エラー"))
-        let viewModel = WeatherViewModel(fetchWeatherUseCase: mockUseCase)
+    func testWeatherFeature_errorState() async {
+        let store = TestStore(initialState: WeatherFeature.State()) {
+            WeatherFeature()
+        } withDependencies: {
+            $0.weatherClient.fetchWeather = { _ in
+                throw WeatherError.networkError("接続エラー")
+            }
+        }
 
-        await viewModel.fetchWeather()
+        await store.send(.onAppear)
+        await store.receive(\.weatherResponse.failure) {
+            $0.errorMessage = "ネットワークエラー: 接続エラー"
+        }
 
-        XCTAssertNotNil(viewModel.errorMessage)
-        XCTAssertTrue(viewModel.errorMessage?.contains("ネットワークエラー") ?? false)
+        XCTAssertNotNil(store.state.errorMessage)
+        XCTAssertTrue(store.state.errorMessage?.contains("ネットワークエラー") ?? false)
     }
 
     // MARK: - Accessibility Tests
@@ -98,7 +126,7 @@ final class WeatherViewSnapshotTests: SnapshotTestCase {
     import SnapshotTesting
 
     func testWeatherView_loaded() {
-        let view = makeWeatherView(state: .loaded(TestFixtures.sampleWeather))
+        let view = makeWeatherView(weather: TestFixtures.sampleWeather)
         assertSnapshot(matching: view, as: .image(layout: .device(config: .iPhone13)))
     }
 */
