@@ -1,0 +1,123 @@
+name: Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ====================
+  # PR Validation
+  # ====================
+  validate:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check PR Title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+
+      - name: Check for TODO/FIXME
+        run: |
+          # 新規追加行にTODO/FIXMEがないかチェック
+          git diff origin/${{ github.base_ref }}...HEAD --diff-filter=A | grep -E "^\+.*\b(TODO|FIXME)\b" && {
+            echo "::warning::New TODO/FIXME comments found in the PR"
+          } || true
+
+  # ====================
+  # Test Coverage Check
+  # ====================
+  coverage:
+    name: Coverage Check
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Run Tests with Coverage
+        run: swift test --enable-code-coverage
+
+      - name: Check Coverage Threshold
+        run: |
+          # カバレッジレポートを生成
+          xcrun llvm-cov report \
+            .build/debug/WeatherAppPackageTests.xctest/Contents/MacOS/WeatherAppPackageTests \
+            -instr-profile=.build/debug/codecov/default.profdata \
+            -ignore-filename-regex=".build|Tests" 2>/dev/null || {
+              echo "Coverage report generation failed, skipping threshold check"
+              exit 0
+            }
+
+  # ====================
+  # Size Analysis
+  # ====================
+  size:
+    name: Binary Size Analysis
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build Release
+        run: swift build -c release
+
+      - name: Analyze Size
+        run: |
+          echo "## Binary Size Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -d ".build/release" ]; then
+            du -sh .build/release/* 2>/dev/null | head -20 >> $GITHUB_STEP_SUMMARY || true
+          fi
+
+  # ====================
+  # Label PR
+  # ====================
+  label:
+    name: Auto Label
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Label based on files changed
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

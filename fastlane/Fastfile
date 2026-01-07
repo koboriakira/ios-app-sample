@@ -1,0 +1,242 @@
+# Fastfile for WeatherApp
+# https://docs.fastlane.tools
+
+default_platform(:ios)
+
+# ====================
+# Constants
+# ====================
+APP_IDENTIFIER = "com.example.weatherapp"
+SCHEME = "WeatherApp"
+WORKSPACE = "WeatherApp.xcworkspace"  # Use if CocoaPods
+PROJECT = "WeatherApp.xcodeproj"      # Generated from SPM
+
+# ====================
+# iOS Platform
+# ====================
+platform :ios do
+
+  # ====================
+  # Before All
+  # ====================
+  before_all do
+    # Ensure we're on a clean state
+    ensure_git_status_clean unless ENV["SKIP_GIT_CHECK"]
+  end
+
+  # ====================
+  # Testing Lanes
+  # ====================
+
+  desc "Run all tests"
+  lane :test do
+    # Swift Package tests
+    sh("cd .. && swift test")
+
+    # Or use scan for Xcode project tests
+    # scan(
+    #   scheme: SCHEME,
+    #   devices: ["iPhone 15"],
+    #   code_coverage: true,
+    #   output_directory: "./fastlane/test_output",
+    #   result_bundle: true
+    # )
+  end
+
+  desc "Run unit tests only"
+  lane :test_unit do
+    sh("cd .. && swift test --filter 'WeatherAppTests'")
+  end
+
+  desc "Run tests with coverage report"
+  lane :test_coverage do
+    sh("cd .. && swift test --enable-code-coverage")
+
+    # Generate coverage report
+    sh(<<~SH)
+      cd .. && xcrun llvm-cov report \
+        .build/debug/WeatherAppPackageTests.xctest/Contents/MacOS/WeatherAppPackageTests \
+        -instr-profile=.build/debug/codecov/default.profdata \
+        -ignore-filename-regex=".build|Tests" 2>/dev/null || true
+    SH
+  end
+
+  # ====================
+  # Build Lanes
+  # ====================
+
+  desc "Build debug"
+  lane :build_debug do
+    sh("cd .. && swift build")
+  end
+
+  desc "Build release"
+  lane :build_release do
+    sh("cd .. && swift build -c release")
+  end
+
+  desc "Build for iOS Simulator"
+  lane :build_ios do |options|
+    device = options[:device] || "iPhone 15"
+
+    xcodebuild(
+      scheme: SCHEME,
+      destination: "platform=iOS Simulator,name=#{device}",
+      configuration: "Debug",
+      build: true,
+      xcargs: "CODE_SIGNING_ALLOWED=NO -skipPackagePluginValidation"
+    )
+  end
+
+  # ====================
+  # Lint Lanes
+  # ====================
+
+  desc "Run SwiftLint"
+  lane :lint do
+    swiftlint(
+      mode: :lint,
+      config_file: ".swiftlint.yml",
+      strict: true,
+      raise_if_swiftlint_error: true
+    )
+  end
+
+  desc "Auto-fix SwiftLint issues"
+  lane :lint_fix do
+    swiftlint(
+      mode: :fix,
+      config_file: ".swiftlint.yml"
+    )
+  end
+
+  # ====================
+  # CI/CD Lanes
+  # ====================
+
+  desc "Run all CI checks"
+  lane :ci do
+    lint
+    build_debug
+    test
+    UI.success("All CI checks passed!")
+  end
+
+  desc "Prepare for release"
+  lane :prepare_release do |options|
+    version = options[:version]
+
+    unless version
+      UI.user_error!("Version required. Usage: fastlane prepare_release version:1.0.0")
+    end
+
+    # Ensure we're on main/develop
+    ensure_git_branch(branch: "(main|develop)")
+
+    # Run all checks
+    ci
+
+    # Create version tag
+    add_git_tag(tag: "v#{version}")
+
+    UI.success("Ready for release v#{version}!")
+  end
+
+  # ====================
+  # Distribution Lanes
+  # ====================
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    # Ensure certificates and profiles
+    # match(type: "appstore")
+
+    # Increment build number
+    increment_build_number(
+      build_number: Time.now.strftime("%Y%m%d%H%M")
+    )
+
+    # Build
+    # build_app(
+    #   scheme: SCHEME,
+    #   export_method: "app-store"
+    # )
+
+    # Upload to TestFlight
+    # upload_to_testflight(
+    #   skip_waiting_for_build_processing: true
+    # )
+
+    UI.important("TestFlight deployment requires Xcode project setup")
+  end
+
+  desc "Deploy to App Store"
+  lane :release do |options|
+    version = options[:version]
+
+    unless version
+      UI.user_error!("Version required. Usage: fastlane release version:1.0.0")
+    end
+
+    # Run all checks first
+    ci
+
+    # Build and upload
+    # build_app(scheme: SCHEME, export_method: "app-store")
+    # upload_to_app_store(
+    #   submit_for_review: false,
+    #   automatic_release: false,
+    #   app_version: version
+    # )
+
+    UI.important("App Store deployment requires Xcode project setup")
+  end
+
+  # ====================
+  # Utility Lanes
+  # ====================
+
+  desc "Generate documentation"
+  lane :docs do
+    sh(<<~SH)
+      cd .. && swift package \
+        --allow-writing-to-directory docs \
+        generate-documentation \
+        --target WeatherApp \
+        --output-path docs \
+        --transform-for-static-hosting 2>/dev/null || echo "DocC not available"
+    SH
+  end
+
+  desc "Clean all build artifacts"
+  lane :clean do
+    sh("cd .. && swift package clean")
+    sh("cd .. && rm -rf .build docs")
+    clear_derived_data
+    UI.success("Cleaned!")
+  end
+
+  desc "Setup development environment"
+  lane :setup do
+    sh("cd .. && swift package resolve")
+    sh("cd .. && chmod +x scripts/*.sh")
+    sh("cd .. && ./scripts/install-hooks.sh")
+    UI.success("Development environment ready!")
+  end
+
+  # ====================
+  # Error Handling
+  # ====================
+
+  error do |lane, exception|
+    UI.error("Lane #{lane} failed with: #{exception.message}")
+
+    # Notify on CI failures (if Slack webhook configured)
+    # slack(
+    #   message: "Build failed: #{exception.message}",
+    #   success: false,
+    #   default_payloads: [:git_branch, :git_author]
+    # )
+  end
+
+end

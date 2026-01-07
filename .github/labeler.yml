@@ -1,0 +1,42 @@
+# Label configuration for actions/labeler
+
+# Domain layer changes
+domain:
+  - changed-files:
+      - any-glob-to-any-file: 'Sources/WeatherApp/Domain/**/*'
+
+# Data layer changes
+data:
+  - changed-files:
+      - any-glob-to-any-file: 'Sources/WeatherApp/Data/**/*'
+
+# Presentation layer changes
+presentation:
+  - changed-files:
+      - any-glob-to-any-file: 'Sources/WeatherApp/Presentation/**/*'
+
+# Test changes
+tests:
+  - changed-files:
+      - any-glob-to-any-file: 'Tests/**/*'
+
+# CI/CD changes
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**/*'
+
+# Documentation changes
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**/*'
+
+# Configuration changes
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Package.swift'
+          - '.swiftlint.yml'
+          - 'Makefile'
+          - 'fastlane/**/*'

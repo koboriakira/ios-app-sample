@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_15.2.app/Contents/Developer
+
+jobs:
+  # ====================
+  # Build & Test (macOS)
+  # ====================
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve Dependencies
+        run: swift package resolve
+
+      - name: Build
+        run: swift build -v
+
+      - name: Run Tests
+        run: swift test -v --enable-code-coverage
+
+      - name: Generate Coverage Report
+        run: |
+          xcrun llvm-cov export \
+            .build/debug/WeatherAppPackageTests.xctest/Contents/MacOS/WeatherAppPackageTests \
+            -instr-profile=.build/debug/codecov/default.profdata \
+            -format=lcov \
+            -ignore-filename-regex=".build|Tests" \
+            > coverage.lcov || true
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.lcov
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  # ====================
+  # SwiftLint
+  # ====================
+  lint:
+    name: SwiftLint
+    runs-on: macos-14
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
+
+  # ====================
+  # Build for iOS
+  # ====================
+  build-ios:
+    name: Build for iOS
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild build \
+            -scheme WeatherApp \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO
+
+  # ====================
+  # Security Scan
+  # ====================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'  # Don't fail on vulnerabilities, just report
+
+  # ====================
+  # Documentation Check
+  # ====================
+  docs:
+    name: Documentation
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build Documentation
+        run: |
+          swift package \
+            --allow-writing-to-directory docs \
+            generate-documentation \
+            --target WeatherApp \
+            --output-path docs \
+            --transform-for-static-hosting || echo "DocC not configured"
+        continue-on-error: true

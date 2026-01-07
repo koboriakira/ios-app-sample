@@ -1,0 +1,86 @@
+#!/bin/bash
+#
+# Commit message hook for WeatherApp
+# コミットメッセージの検証
+#
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+echo "📝 Validating commit message..."
+
+# ====================
+# 1. Conventional Commits Format Check
+# ====================
+# Format: type(scope): description
+# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,}"
+
+# マージコミットとリバートコミットは除外
+if echo "$COMMIT_MSG" | grep -qE "^Merge|^Revert"; then
+    echo "✅ Merge/Revert commit - skipping validation"
+    exit 0
+fi
+
+if ! echo "$COMMIT_MSG" | head -1 | grep -qE "$PATTERN"; then
+    echo "❌ Invalid commit message format!"
+    echo ""
+    echo "Commit message must follow Conventional Commits format:"
+    echo "  type(scope): description"
+    echo ""
+    echo "Types:"
+    echo "  feat     - A new feature"
+    echo "  fix      - A bug fix"
+    echo "  docs     - Documentation only changes"
+    echo "  style    - Code style changes (formatting, etc.)"
+    echo "  refactor - Code refactoring"
+    echo "  perf     - Performance improvements"
+    echo "  test     - Adding or updating tests"
+    echo "  build    - Build system or dependencies"
+    echo "  ci       - CI configuration changes"
+    echo "  chore    - Other changes"
+    echo "  revert   - Revert a previous commit"
+    echo ""
+    echo "Examples:"
+    echo "  feat: add weather caching"
+    echo "  fix(api): handle network timeout"
+    echo "  docs: update README"
+    echo ""
+    echo "Your message: $COMMIT_MSG"
+    exit 1
+fi
+
+# ====================
+# 2. Subject Line Length Check
+# ====================
+SUBJECT_LINE=$(echo "$COMMIT_MSG" | head -1)
+SUBJECT_LENGTH=${#SUBJECT_LINE}
+
+if [ "$SUBJECT_LENGTH" -gt 72 ]; then
+    echo "⚠️  Warning: Subject line is $SUBJECT_LENGTH characters (recommended: ≤72)"
+fi
+
+# ====================
+# 3. Body Format Check (if present)
+# ====================
+BODY=$(echo "$COMMIT_MSG" | tail -n +3)
+
+if [ -n "$BODY" ]; then
+    # ボディの行が72文字を超えていないかチェック
+    LONG_LINES=$(echo "$BODY" | awk 'length > 72 { count++ } END { print count+0 }')
+
+    if [ "$LONG_LINES" -gt 0 ]; then
+        echo "ℹ️  Note: $LONG_LINES line(s) in body exceed 72 characters"
+    fi
+fi
+
+# ====================
+# 4. Issue Reference Check (optional)
+# ====================
+if echo "$COMMIT_MSG" | grep -qiE "(closes?|fixes?|resolves?)\s*#[0-9]+"; then
+    echo "✅ Issue reference found"
+fi
+
+echo "✅ Commit message validation passed"
+exit 0

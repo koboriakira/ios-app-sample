@@ -1,0 +1,29 @@
+# Appfile for WeatherApp
+# https://docs.fastlane.tools/advanced/Appfile/
+
+# App Identifier (Bundle ID)
+app_identifier("com.example.weatherapp")
+
+# Apple ID
+# apple_id("your@email.com")
+
+# Team ID (from Apple Developer Portal)
+# team_id("TEAM_ID")
+
+# App Store Connect Team ID
+# itc_team_id("ITC_TEAM_ID")
+
+# ====================
+# Environment-specific Configuration
+# ====================
+
+# For different environments, you can use:
+# for_platform :ios do
+#   for_lane :beta do
+#     app_identifier("com.example.weatherapp.beta")
+#   end
+#
+#   for_lane :release do
+#     app_identifier("com.example.weatherapp")
+#   end
+# end

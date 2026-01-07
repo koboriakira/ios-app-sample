@@ -1,0 +1,231 @@
+# SwiftLint Configuration for WeatherApp
+# https://github.com/realm/SwiftLint
+
+# ====================
+# Included/Excluded Paths
+# ====================
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - Package.swift
+  - "*/Generated/*"
+
+# ====================
+# Enabled Rules
+# ====================
+opt_in_rules:
+  # Performance
+  - empty_count
+  - empty_string
+  - first_where
+  - last_where
+  - sorted_first_last
+  - contains_over_first_not_nil
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - flatmap_over_map_reduce
+
+  # Readability
+  - array_init
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - explicit_init
+  - extension_access_modifier
+  - fatal_error_message
+  - file_name_no_space
+  - identical_operands
+  - implicit_return
+  - joined_default_parameter
+  - literal_expression_end_indentation
+  - modifier_order
+  - multiline_arguments
+  - multiline_function_chains
+  - multiline_literal_brackets
+  - multiline_parameters
+  - operator_usage_whitespace
+  - overridden_super_call
+  - pattern_matching_keywords
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - private_action
+  - private_outlet
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - return_arrow_whitespace
+  - single_test_class
+  - sorted_imports
+  - toggle_bool
+  - trailing_closure
+  - unneeded_parentheses_in_closure_argument
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - yoda_condition
+
+  # Swift Concurrency
+  - unowned_variable_capture
+
+  # Style
+  - attributes
+  - number_separator
+  - object_literal
+  - prefixed_toplevel_constant
+  - prohibited_interface_builder
+
+# ====================
+# Disabled Rules
+# ====================
+disabled_rules:
+  - todo  # TODOコメントを許可
+  - trailing_whitespace  # 空白行の末尾スペースを許可
+
+# ====================
+# Rule Configuration
+# ====================
+
+# Line length
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+  ignores_function_declarations: true
+  ignores_comments: true
+
+# File length
+file_length:
+  warning: 500
+  error: 1000
+  ignore_comment_only_lines: true
+
+# Type body length
+type_body_length:
+  warning: 300
+  error: 500
+
+# Function body length
+function_body_length:
+  warning: 50
+  error: 100
+
+# Cyclomatic complexity
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+  ignores_case_statements: true
+
+# Type name
+type_name:
+  min_length: 3
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - ID
+    - DTO
+
+# Identifier name
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - j
+    - to
+
+# Nesting
+nesting:
+  type_level: 3
+  function_level: 5
+
+# Large tuple
+large_tuple:
+  warning: 3
+  error: 4
+
+# Vertical whitespace
+vertical_whitespace:
+  max_empty_lines: 2
+
+# Trailing comma
+trailing_comma:
+  mandatory_comma: true
+
+# Number separator
+number_separator:
+  minimum_length: 5
+
+# Multiline arguments
+multiline_arguments:
+  first_argument_location: next_line
+  only_enforce_after_first_closure_on_first_line: true
+
+# Sorted imports
+sorted_imports:
+  severity: warning
+
+# Modifier order
+modifier_order:
+  preferred_modifier_order:
+    - acl
+    - setterACL
+    - override
+    - dynamic
+    - mutating
+    - lazy
+    - final
+    - required
+    - convenience
+    - typeMethods
+    - owned
+
+# ====================
+# Custom Rules
+# ====================
+custom_rules:
+  # Mark comments formatting
+  mark_newlines:
+    name: "MARK Newlines"
+    regex: "(// MARK: -)|(// MARK: [^\\-])"
+    message: "Use `// MARK: - Section Name` format with a hyphen"
+    severity: warning
+
+  # Avoid print statements in production code
+  no_print:
+    name: "No Print"
+    regex: "\\bprint\\s*\\("
+    match_kinds:
+      - identifier
+    message: "Avoid using print() in production code. Use a logging framework instead."
+    severity: warning
+    excluded: ".*Tests.*"
+
+  # Avoid force unwrapping
+  no_force_unwrap:
+    name: "No Force Unwrap"
+    regex: "\\w+!"
+    match_kinds:
+      - identifier
+    message: "Avoid force unwrapping. Use optional binding or nil coalescing."
+    severity: warning
+    excluded: ".*Tests.*"
+
+# ====================
+# Analyzer Rules
+# ====================
+analyzer_rules:
+  - unused_import
+  - unused_declaration
+
+# Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
+reporter: "xcode"

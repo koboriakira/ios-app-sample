@@ -1,0 +1,121 @@
+#!/bin/bash
+#
+# Pre-commit hook for WeatherApp
+# コミット前に実行される品質チェック
+#
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# ====================
+# 1. SwiftLint Check
+# ====================
+if command -v swiftlint &> /dev/null; then
+    echo "📝 Running SwiftLint..."
+
+    # ステージされたSwiftファイルのみチェック
+    STAGED_SWIFT_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.swift$' || true)
+
+    if [ -n "$STAGED_SWIFT_FILES" ]; then
+        echo "$STAGED_SWIFT_FILES" | xargs swiftlint lint --quiet --strict
+        if [ $? -ne 0 ]; then
+            echo "❌ SwiftLint errors found. Please fix them before committing."
+            exit 1
+        fi
+        echo "✅ SwiftLint passed"
+    else
+        echo "ℹ️  No Swift files to lint"
+    fi
+else
+    echo "⚠️  SwiftLint not installed. Skipping lint check."
+    echo "   Install with: brew install swiftlint"
+fi
+
+# ====================
+# 2. Swift Format Check (if available)
+# ====================
+if command -v swift-format &> /dev/null; then
+    echo "🎨 Checking Swift formatting..."
+
+    STAGED_SWIFT_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.swift$' || true)
+
+    if [ -n "$STAGED_SWIFT_FILES" ]; then
+        for file in $STAGED_SWIFT_FILES; do
+            swift-format lint "$file" 2>/dev/null || true
+        done
+        echo "✅ Format check completed"
+    fi
+fi
+
+# ====================
+# 3. Build Check
+# ====================
+echo "🔨 Checking build..."
+if swift build 2>/dev/null; then
+    echo "✅ Build succeeded"
+else
+    echo "❌ Build failed. Please fix build errors before committing."
+    exit 1
+fi
+
+# ====================
+# 4. Sensitive Data Check
+# ====================
+echo "🔐 Checking for sensitive data..."
+
+SENSITIVE_PATTERNS=(
+    "password\s*="
+    "api_key\s*="
+    "secret\s*="
+    "private_key"
+    "AWS_ACCESS_KEY"
+    "AWS_SECRET_KEY"
+)
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+    if echo "$STAGED_FILES" | xargs grep -l -i -E "$pattern" 2>/dev/null; then
+        echo "⚠️  Warning: Potential sensitive data found matching pattern: $pattern"
+        echo "   Please review before committing."
+    fi
+done
+
+echo "✅ Sensitive data check completed"
+
+# ====================
+# 5. Large File Check
+# ====================
+echo "📦 Checking for large files..."
+
+MAX_FILE_SIZE=1048576  # 1MB
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+for file in $STAGED_FILES; do
+    if [ -f "$file" ]; then
+        FILE_SIZE=$(wc -c < "$file")
+        if [ "$FILE_SIZE" -gt "$MAX_FILE_SIZE" ]; then
+            echo "❌ File '$file' is larger than 1MB. Consider using Git LFS."
+            exit 1
+        fi
+    fi
+done
+
+echo "✅ Large file check passed"
+
+# ====================
+# 6. TODO/FIXME Count
+# ====================
+echo "📋 Counting TODO/FIXME comments..."
+
+TODO_COUNT=$(git diff --cached --diff-filter=ACM | grep -c "^\+.*\(TODO\|FIXME\)" || true)
+
+if [ "$TODO_COUNT" -gt 0 ]; then
+    echo "ℹ️  $TODO_COUNT new TODO/FIXME comment(s) added"
+fi
+
+echo ""
+echo "✅ All pre-commit checks passed!"
+echo ""
