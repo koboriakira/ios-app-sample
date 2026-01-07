@@ -193,10 +193,10 @@ modifier_order:
 # Custom Rules
 # ====================
 custom_rules:
-  # Mark comments formatting
+  # Mark comments formatting - ensure MARK comments have a hyphen
   mark_newlines:
     name: "MARK Newlines"
-    regex: "(// MARK: -)|(// MARK: [^\\-])"
+    regex: "// MARK: (?!- )"
     message: "Use `// MARK: - Section Name` format with a hyphen"
     severity: warning
 

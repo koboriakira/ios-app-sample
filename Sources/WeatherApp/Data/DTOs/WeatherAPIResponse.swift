@@ -47,10 +47,17 @@ struct WeatherAPIResponse: Decodable {
         }
 
         struct ChanceOfRainDTO: Decodable {
-            let T00_06: String
-            let T06_12: String
-            let T12_18: String
-            let T18_24: String
+            let t0006: String
+            let t0612: String
+            let t1218: String
+            let t1824: String
+
+            private enum CodingKeys: String, CodingKey {
+                case t0006 = "T00_06"
+                case t0612 = "T06_12"
+                case t1218 = "T12_18"
+                case t1824 = "T18_24"
+            }
         }
 
         struct ImageDTO: Decodable {
@@ -147,10 +154,10 @@ extension WeatherAPIResponse.ForecastDTO.TemperatureDTO.TemperatureValueDTO {
 extension WeatherAPIResponse.ForecastDTO.ChanceOfRainDTO {
     func toDomain() -> ChanceOfRain {
         ChanceOfRain(
-            t00_06: T00_06,
-            t06_12: T06_12,
-            t12_18: T12_18,
-            t18_24: T18_24
+            t00_06: t0006,
+            t06_12: t0612,
+            t12_18: t1218,
+            t18_24: t1824
         )
     }
 }
