@@ -15,6 +15,42 @@ env:
 
 jobs:
   # ====================
+  # Core Logic Tests (Ubuntu/Linux)
+  # ====================
+  test-core-ubuntu:
+    name: Core Tests (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '5.9'
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: Packages/WeatherCore/.build
+          key: ${{ runner.os }}-spm-weathercore-${{ hashFiles('Packages/WeatherCore/Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-weathercore-
+
+      - name: Build WeatherCore
+        working-directory: Packages/WeatherCore
+        run: swift build -v
+
+      - name: Run WeatherCore Tests
+        working-directory: Packages/WeatherCore
+        run: swift test -v
+
+  # ====================
   # Build & Test (macOS)
   # ====================
   build-and-test:
